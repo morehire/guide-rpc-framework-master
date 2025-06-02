@@ -42,10 +42,15 @@ import java.util.concurrent.TimeUnit;
  */
 @Slf4j
 public final class NettyRpcClient implements RpcRequestTransport {
+    //用于服务发现，查找服务所在的地址
     private final ServiceDiscovery serviceDiscovery;
+    //用于存放未处理的请求
     private final UnprocessedRequests unprocessedRequests;
+    //管理 Channel 对象，提供复用的 Channel
     private final ChannelProvider channelProvider;
+    //Netty 客户端启动器，用于配置和启动客户端
     private final Bootstrap bootstrap;
+    //Netty 的事件循环组，负责处理 I/O 操作
     private final EventLoopGroup eventLoopGroup;
 
     public NettyRpcClient() {

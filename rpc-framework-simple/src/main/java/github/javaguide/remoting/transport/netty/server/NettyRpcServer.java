@@ -39,16 +39,21 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 @Component
 public class NettyRpcServer {
-
+    // 服务端默认端口
     public static final int PORT = 9998;
-
+    // 服务提供者（基于 Zookeeper 实现）
     private final ServiceProvider serviceProvider = SingletonFactory.getInstance(ZkServiceProviderImpl.class);
 
+    /**
+     * 注册服务到服务提供者
+     * @param rpcServiceConfig RPC 服务配置（包含接口名、实现类等）
+     */
     public void registerService(RpcServiceConfig rpcServiceConfig) {
         serviceProvider.publishService(rpcServiceConfig);
     }
 
-    @SneakyThrows
+
+    @SneakyThrows // Lombok 注解，自动处理异常
     public void start() {
         CustomShutdownHook.getCustomShutdownHook().clearAll();
         String host = InetAddress.getLocalHost().getHostAddress();
