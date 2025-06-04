@@ -39,34 +39,51 @@ public class NettyRpcServerHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) {
         try {
+            // 检查接收到的消息是否为RpcMessage类型
             if (msg instanceof RpcMessage) {
                 log.info("server receive msg: [{}] ", msg);
                 byte messageType = ((RpcMessage) msg).getMessageType();
+
+                // 创建响应消息基础结构
                 RpcMessage rpcMessage = new RpcMessage();
+                // 设置序列化和压缩方式（与客户端保持一致）
                 rpcMessage.setCodec(SerializationTypeEnum.HESSIAN.getCode());
                 rpcMessage.setCompress(CompressTypeEnum.GZIP.getCode());
+
+                // 心跳请求处理
                 if (messageType == RpcConstants.HEARTBEAT_REQUEST_TYPE) {
                     rpcMessage.setMessageType(RpcConstants.HEARTBEAT_RESPONSE_TYPE);
-                    rpcMessage.setData(RpcConstants.PONG);
-                } else {
+                    rpcMessage.setData(RpcConstants.PONG); // 返回心跳响应
+                }
+                // 业务请求处理
+                else {
+                    // 提取RPC请求数据
                     RpcRequest rpcRequest = (RpcRequest) ((RpcMessage) msg).getData();
-                    // Execute the target method (the method the client needs to execute) and return the method result
+
+                    // 调用业务处理器执行目标方法
                     Object result = rpcRequestHandler.handle(rpcRequest);
                     log.info(String.format("server get result: %s", result.toString()));
+
+                    // 设置响应类型
                     rpcMessage.setMessageType(RpcConstants.RESPONSE_TYPE);
+
+                    // 检查通道是否可用
                     if (ctx.channel().isActive() && ctx.channel().isWritable()) {
+                        // 构建成功响应（包含请求ID用于客户端匹配）
                         RpcResponse<Object> rpcResponse = RpcResponse.success(result, rpcRequest.getRequestId());
                         rpcMessage.setData(rpcResponse);
                     } else {
+                        // 通道不可用时返回失败响应
                         RpcResponse<Object> rpcResponse = RpcResponse.fail(RpcResponseCodeEnum.FAIL);
                         rpcMessage.setData(rpcResponse);
                         log.error("not writable now, message dropped");
                     }
                 }
+                // 发送响应并添加失败关闭监听
                 ctx.writeAndFlush(rpcMessage).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
             }
         } finally {
-            //Ensure that ByteBuf is released, otherwise there may be memory leaks
+            // 确保释放ByteBuf内存（防止内存泄漏）
             ReferenceCountUtil.release(msg);
         }
     }

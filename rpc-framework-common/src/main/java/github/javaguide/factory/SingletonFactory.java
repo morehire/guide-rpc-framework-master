@@ -6,7 +6,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 获取单例对象的工厂类
- *
+ * 实现了一个通用的单例对象工厂，用于创建和管理任意类的单例实例
  * @author shuang.kou
  * @createTime 2020年06月03日 15:04:00
  */
