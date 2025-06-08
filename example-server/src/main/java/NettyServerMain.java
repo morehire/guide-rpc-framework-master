@@ -15,13 +15,19 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
 public class NettyServerMain {
     public static void main(String[] args) {
         // Register service via annotation
+        //HelloServiceImpl1 通过注册 @RpcService(group = "test1", version = "version1")//注解注册服务
         AnnotationConfigApplicationContext applicationContext = new AnnotationConfigApplicationContext(NettyServerMain.class);
+
         NettyRpcServer nettyRpcServer = (NettyRpcServer) applicationContext.getBean("nettyRpcServer");
+
         // Register service manually
         HelloService helloService2 = new HelloServiceImpl2();
         RpcServiceConfig rpcServiceConfig = RpcServiceConfig.builder()
-                .group("test2").version("version2").service(helloService2).build();
+                .group("test2")
+                .version("version2")
+                .service(helloService2)
+                .build();
         nettyRpcServer.registerService(rpcServiceConfig);
-        nettyRpcServer.start();
+        nettyRpcServer.start();//方法启动 RPC 服务器，开始监听客户端请求
     }
 }

@@ -10,7 +10,7 @@ import lombok.extern.slf4j.Slf4j;
  * @createTime 2020年05月10日 07:52:00
  */
 @Slf4j
-@RpcService(group = "test1", version = "version1")
+@RpcService(group = "test1", version = "version1")//注解注册服务
 public class HelloServiceImpl implements HelloService {
 
     static {

@@ -61,10 +61,14 @@ public class ZkServiceProviderImpl implements ServiceProvider {
     @Override
     public void publishService(RpcServiceConfig rpcServiceConfig) {
         try {
+            // 获取本机IP地址
             String host = InetAddress.getLocalHost().getHostAddress();
+            // 将服务添加到本地服务缓存
             this.addService(rpcServiceConfig);
+            // 向注册中心注册服务（服务名 + 服务地址）
             serviceRegistry.registerService(rpcServiceConfig.getRpcServiceName(), new InetSocketAddress(host, NettyRpcServer.PORT));
         } catch (UnknownHostException e) {
+            // 处理无法获取本机地址的异常
             log.error("occur exception when getHostAddress", e);
         }
     }

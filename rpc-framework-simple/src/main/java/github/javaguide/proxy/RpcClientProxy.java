@@ -33,6 +33,9 @@ public class RpcClientProxy implements InvocationHandler {
 
     /**
      * Used to send requests to the server.And there are two implementations: socket and netty
+     * RpcRequestTransport 是一个接口，用于发送 RPC 请求到服务器。
+     * 它有两个实现类：SocketRpcClient 和 NettyRpcClient。
+     * 在当前代理类中注入了 RpcRequestTransport 接口的实现类，负责与服务器建立连接、发送 RPC 请求以及处理响应。
      */
     private final RpcRequestTransport rpcRequestTransport;
     private final RpcServiceConfig rpcServiceConfig;
@@ -65,20 +68,23 @@ public class RpcClientProxy implements InvocationHandler {
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) {
         log.info("invoked method: [{}]", method.getName());
-        RpcRequest rpcRequest = RpcRequest.builder().methodName(method.getName())
-                .parameters(args)
-                .interfaceName(method.getDeclaringClass().getName())
-                .paramTypes(method.getParameterTypes())
-                .requestId(UUID.randomUUID().toString())
-                .group(rpcServiceConfig.getGroup())
-                .version(rpcServiceConfig.getVersion())
+        RpcRequest rpcRequest = RpcRequest.builder()
+                .methodName(method.getName())// 被调用的方法名（如 "hello"）
+                .parameters(args)  // 方法参数数组（如 new Hello("111", "222")）
+                .interfaceName(method.getDeclaringClass().getName()) // 方法所属的接口全限定名（如 "github.javaguide.HelloService"）
+                .paramTypes(method.getParameterTypes()) // 参数类型数组（如 Hello.class）
+                .requestId(UUID.randomUUID().toString()) // 唯一请求 ID（用于匹配服务端响应）
+                .group(rpcServiceConfig.getGroup()) // 服务分组（来自 @RpcReference 的 group 属性）
+                .version(rpcServiceConfig.getVersion()) // 服务版本（来自 @RpcReference 的 version 属性）
                 .build();
         RpcResponse<Object> rpcResponse = null;
+        // Netty 异步传输实现
         if (rpcRequestTransport instanceof NettyRpcClient) {
+
             CompletableFuture<RpcResponse<Object>> completableFuture = (CompletableFuture<RpcResponse<Object>>) rpcRequestTransport.sendRpcRequest(rpcRequest);
-            rpcResponse = completableFuture.get();
+            rpcResponse = completableFuture.get(); // 阻塞等待异步结果，获取响应对象返回响应结果
         }
-        if (rpcRequestTransport instanceof SocketRpcClient) {
+        if (rpcRequestTransport instanceof SocketRpcClient) {  // Socket 同步传输实现
             rpcResponse = (RpcResponse<Object>) rpcRequestTransport.sendRpcRequest(rpcRequest);
         }
         this.check(rpcResponse, rpcRequest);

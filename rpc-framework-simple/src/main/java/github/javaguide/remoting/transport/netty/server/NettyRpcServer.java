@@ -50,17 +50,40 @@ public class NettyRpcServer {
 
     @SneakyThrows
     public void start() {
+        // 调用自定义的关闭钩子，在 JVM 关闭前清理所有相关资源
         CustomShutdownHook.getCustomShutdownHook().clearAll();
+        // 获取本机的 IP 地址，用于后续服务器绑定
         String host = InetAddress.getLocalHost().getHostAddress();
+        // 创建一个 NioEventLoopGroup 作为 bossGroup，负责处理客户端的连接请求，指定线程数为 1，这是I/O 线程
+        /*
+        * bossGroup（主事件循环组）职责：仅负责监听客户端的连接请求（如 TCP 三次握手），
+        * 并将新建立的连接（Channel）分配给 workerGroup 处理。
+        * 线程数：代码中显式设置为 1（new NioEventLoopGroup(1)），
+        * 因为连接请求的处理（如接受连接）是轻量级操作，一个线程足够应对大多数场景，过多线程反而会增加上下文切换开销。
+        * */
         EventLoopGroup bossGroup = new NioEventLoopGroup(1);
+        // 创建一个 NioEventLoopGroup 作为 workerGroup，负责处理连接的读写操作
+        /*
+        * workerGroup（从事件循环组）职责：负责处理已连接客户端的网络 I/O 操作（如读取数据、写入数据、心跳检测等）。
+        * 线程数：未显式指定（new NioEventLoopGroup()），默认线程数为 CPU 核心数 × 2（由 Netty 内部根据 Runtime.getRuntime().availableProcessors() 计算）。
+        * 这是因为 I/O 操作（如数据读写）需要较高的并发能力，更多线程可以充分利用 CPU 资源，提升吞吐量。
+        * */
         EventLoopGroup workerGroup = new NioEventLoopGroup();
+        //
+        /*
+        * 创建一个默认的事件执行器组，用于处理业务逻辑，线程数为 CPU 核心数的 2 倍，I/O 线程与业务线程分离
+        * */
         DefaultEventExecutorGroup serviceHandlerGroup = new DefaultEventExecutorGroup(
                 RuntimeUtil.cpus() * 2,
+                // 使用自定义的线程工厂创建线程，线程名前缀为 "service-handler-group"
                 ThreadPoolFactoryUtil.createThreadFactory("service-handler-group", false)
         );
         try {
+            // 创建 ServerBootstrap 实例，用于配置和启动 Netty 服务器
             ServerBootstrap b = new ServerBootstrap();
+            // 设置 bossGroup 和 workerGroup 到 ServerBootstrap 中
             b.group(bossGroup, workerGroup)
+                    // 指定使用 NioServerSocketChannel 作为服务器通道
                     .channel(NioServerSocketChannel.class)
                     // TCP默认开启了 Nagle 算法，该算法的作用是尽可能的发送大数据快，减少网络传输。TCP_NODELAY 参数的作用就是控制是否启用 Nagle 算法。
                     .childOption(ChannelOption.TCP_NODELAY, true)
@@ -75,9 +98,16 @@ public class NettyRpcServer {
                         protected void initChannel(SocketChannel ch) {
                             // 30 秒之内没有收到客户端请求的话就关闭连接
                             ChannelPipeline p = ch.pipeline();
+                            // 添加空闲状态处理器，30 秒内没有收到客户端请求则触发空闲事件
                             p.addLast(new IdleStateHandler(30, 0, 0, TimeUnit.SECONDS));
+                            // 添加 RPC 消息编码器，将 RPC 消息对象编码为字节流
                             p.addLast(new RpcMessageEncoder());
+                            // 添加 RPC 消息解码器，将字节流解码为 RPC 消息对象
                             p.addLast(new RpcMessageDecoder());
+                            // 使用 serviceHandlerGroup 线程池处理 NettyRpcServerHandler 的业务逻辑
+                            /*
+                            * NettyRpcServerHandler()是自己实现的处理器，用于处理客户端请求并返回响应
+                            * */
                             p.addLast(serviceHandlerGroup, new NettyRpcServerHandler());
                         }
                     });
@@ -95,6 +125,4 @@ public class NettyRpcServer {
             serviceHandlerGroup.shutdownGracefully();
         }
     }
-
-
 }
